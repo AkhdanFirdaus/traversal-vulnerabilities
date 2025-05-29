@@ -5,7 +5,7 @@ Proyek ini adalah sebuah aplikasi PHP sederhana yang sengaja dibuat rentan terha
 ## Struktur Proyek (Skeleton)
 
 Berikut adalah penjelasan mengenai struktur direktori dan file utama dalam proyek ini:
-`
+```
 path-traversal-test/
 ├── src/
 │   └── vuln_file_read.php        # Script PHP yang rentan, target utama pengujian
@@ -32,8 +32,7 @@ path-traversal-test/
 ├── composer.json                 # File konfigurasi Composer untuk dependensi (PHPUnit, Infection)
 ├── phpunit.xml.dist              # File konfigurasi PHPUnit
 └── infection.json.dist           # File konfigurasi Infection (mutation testing)
-`
-
+```
 
 **Penjelasan Detail:**
 
