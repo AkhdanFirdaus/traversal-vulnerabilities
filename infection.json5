@@ -16,8 +16,8 @@
     },
     "timeout": 10,
     "logs": {
-        "text": "logs/infection.log",
-        "html": "logs/infection.html",
-        "summary": "logs/summary.log"
+        "text": "build/logs/infection.log",
+        "html": "build/logs/infection.html",
+        "summary": "build/logs/summary.log"
     }
 }

@@ -1,105 +1,111 @@
-<?php // tests/BaseVulnerableScriptTest.php
-
+<?php
+// tests/BaseVulnerableScriptTest.php
 namespace Tests;
 
 use PHPUnit\Framework\TestCase;
 
 abstract class BaseVulnerableScriptTest extends TestCase
 {
-    // Konten file dummy yang diharapkan ada di ./vulnerable_files/
-    protected string $secretContent = "This is the TOP SECRET content!";
-    protected string $adminPanelContent = "<h1>Admin Panel</h1>";
-    protected string $dbConfigContent = "<?php // DB Config";
-    protected string $legitContent = "This is a public file.";
-    protected string $publicModuleContent = '<?php echo "Ini adalah konten modul publik."; ?>';
-    protected string $etcPasswdContent = "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin";
-    protected string $windowsHostsContent = "127.0.0.1 localhost\r\n::1 localhost";
+    protected string $projectRoot;
+    protected array $allPatternsData; // Kept if individual tests still want to reference it, though providers are now specific
 
-    protected string $baseVulnerableFilesPath;
+    // Constants for the script primarily targeted by these path traversal tests
+    protected const SCRIPT_NAME_FILE_READ = 'vuln_file_read.php';
+    protected const PARAM_NAME_FILE_READ = 'file';
 
-    public function __construct(?string $name = null, array $data = [], $dataName = '')
+    protected function setUp(): void
     {
-        parent::__construct($name, $data, $dataName);
-        // Inisialisasi path dasar ke vulnerable_files
-        $constructedPath = __DIR__ . '/../vulnerable_files';
-        $this->baseVulnerableFilesPath = realpath($constructedPath);
-
-        // Jika path tidak ada, $this->baseVulnerableFilesPath akan false.
-        // Ini akan ditangani di setUp() atau setUpBeforeClass().
-    }
-
-    /**
-     * Menjalankan skrip PHP yang rentan dan menangkap outputnya.
-     * @param string $scriptName Nama file skrip di direktori src/.
-     * @param array $getParams Parameter GET yang akan dikirim ke skrip.
-     * @return string Output dari skrip.
-     */
-    protected function executeScript(string $scriptName, array $getParams): string
-    {
-        $originalGet = $_GET;
-        $originalServer = $_SERVER;
-
-        $_GET = $getParams;
-        // Simulasikan beberapa variabel server minimal yang mungkin dibutuhkan skrip
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-        $_SERVER['SCRIPT_NAME'] = '/src/' . $scriptName;
-        $_SERVER['QUERY_STRING'] = http_build_query($getParams);
-
-        // Path absolut ke skrip yang akan diuji
-        $scriptPath = realpath(__DIR__ . '/../src/' . $scriptName);
-
-        if ($scriptPath === false || !file_exists($scriptPath)) {
-            $this->fail("Script file not found or path invalid: " . __DIR__ . '/../src/' . $scriptName);
+        $this->projectRoot = realpath(__DIR__ . '/..');
+        if (!$this->projectRoot) {
+            throw new \RuntimeException("Project root could not be determined. __DIR__ is " . __DIR__);
         }
 
+        $patternsJsonPath = $this->projectRoot . '/patterns.json';
+        if (!file_exists($patternsJsonPath)) {
+            throw new \RuntimeException("patterns.json not found at: " . $patternsJsonPath);
+        }
+        $patternsJson = file_get_contents($patternsJsonPath);
+        $this->allPatternsData = json_decode($patternsJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException("Error decoding patterns.json: " . json_last_error_msg());
+        }
+    }
+
+    protected function executeVulnerableScript(string $scriptName, string $paramName, string $payload): string
+    {
+        $originalGet = $_GET;
+        $_GET = [];
+        $_GET[$paramName] = $payload;
+
         ob_start();
-        include $scriptPath; // Include skrip untuk menjalankannya dalam lingkup ini
-        $output = ob_get_clean();
-
-        // Kembalikan variabel global ke keadaan semula
-        $_GET = $originalGet;
-        $_SERVER = $originalServer;
-
+        try {
+            $scriptPath = $this->projectRoot . '/src/' . $scriptName;
+            if (!file_exists($scriptPath)) {
+                throw new \RuntimeException("Script not found: {$scriptPath}");
+            }
+            include $scriptPath;
+        } finally {
+            $output = ob_get_clean();
+            $_GET = $originalGet;
+        }
         return $output;
     }
 
-    /**
-     * Dipanggil sekali sebelum tes pertama dalam kelas ini dijalankan.
-     */
-    public static function setUpBeforeClass(): void
+    protected function getTargetFileContent(string $relativePathToFile): string
     {
-        $basePath = realpath(__DIR__ . '/../vulnerable_files');
-        if ($basePath === false || !is_dir($basePath)) {
-            // Anda bisa throw exception di sini jika direktori ini krusial dan harus ada
-            // throw new \Exception("Direktori vulnerable_files tidak ditemukan. Pastikan sudah disiapkan.");
-            // Atau cukup catat peringatan (PHPUnit mungkin tidak menampilkannya kecuali ada kegagalan)
-            // fwrite(STDERR, "PERINGATAN: Direktori vulnerable_files tidak ditemukan.\n");
+        // $relativePathToFile is relative to vulnerable_files/ in the project root
+        $fullPath = $this->projectRoot . '/vulnerable_files/' . $relativePathToFile;
+        if (!file_exists($fullPath) || !is_readable($fullPath)) {
+            trigger_error("Test assertion error: Cannot read target file: {$fullPath}", E_USER_WARNING);
+            return "Error reading expected content: " . $relativePathToFile;
         }
+        return file_get_contents($fullPath);
     }
 
-    /**
-     * Dipanggil sebelum setiap metode tes dalam kelas ini dijalankan.
-     */
-    protected function setUp(): void
+    protected function getSecretTextContent(): string
     {
-        if ($this->baseVulnerableFilesPath === false || !is_dir($this->baseVulnerableFilesPath)) {
-            $this->markTestSkipped("Direktori vulnerable_files tidak ditemukan atau tidak dapat diakses di '" . __DIR__ . "/../vulnerable_files" . "'. Harap siapkan direktori dan file-file dummy secara manual.");
-        }
-        // Contoh verifikasi file penting, bisa diperluas
-        if (!file_exists($this->baseVulnerableFilesPath . '/secret_dir/secret.txt')) {
-             $this->markTestSkipped("File /secret_dir/secret.txt tidak ditemukan di vulnerable_files. Tes mungkin gagal atau diskip.");
-        }
-         if (!file_exists($this->baseVulnerableFilesPath . '/safe_dir/legit.txt')) {
-             $this->markTestSkipped("File /safe_dir/legit.txt tidak ditemukan di vulnerable_files. Tes mungkin gagal atau diskip.");
-        }
+        return $this->getTargetFileContent('secret_dir/secret.txt');
     }
 
-    /**
-     * Dipanggil setelah setiap metode tes dalam kelas ini dijalankan.
-     */
-    protected function tearDown(): void
+    protected function getEtcPasswdContent(): string
     {
-        // Tidak ada penghapusan file di sini untuk menjaga file yang disiapkan manual.
-        // Jika tes spesifik membuat file sementara, tes tersebut yang harus membersihkannya.
+        return $this->getTargetFileContent('etc/passwd');
+    }
+
+    protected function getWindowsHostsContent(): string
+    {
+        return $this->getTargetFileContent('Windows/System32/drivers/etc/hosts');
+    }
+
+    protected function runFileReadTest(string $message, string $payload, string $targetFileKey)
+    {
+        // Using constants defined in this base class, assuming all these CWE tests target the same script/param
+        $output = $this->executeVulnerableScript(static::SCRIPT_NAME_FILE_READ, static::PARAM_NAME_FILE_READ, $payload);
+        $expectedContent = '';
+
+        switch ($targetFileKey) {
+            case 'secret.txt':
+                $expectedContent = $this->getSecretTextContent();
+                break;
+            case 'etc/passwd':
+                $expectedContent = $this->getEtcPasswdContent();
+                break;
+            case 'windows/hosts':
+                $expectedContent = $this->getWindowsHostsContent();
+                break;
+            case 'admin_panel_content_as_text':
+                $expectedContent = $this->getTargetFileContent('secret_dir/admin/panel.php');
+                break;
+            case 'config_db_content_as_text':
+                $expectedContent = $this->getTargetFileContent('secret_dir/config/db.php');
+                break;
+            case 'safe_dir/legit.txt':
+                 $expectedContent = $this->getTargetFileContent('safe_dir/legit.txt');
+                 break;
+            default:
+                $this->fail("Unknown targetFileKey in runFileReadTest: '$targetFileKey' for test message: $message");
+        }
+        $this->assertEquals($expectedContent, $output, "Test Failed: $message. Payload: $payload");
     }
 }
+?>
