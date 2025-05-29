@@ -3,7 +3,6 @@
 header('Content-Type: text/plain; charset=utf-8');
 
 function custom_unsafe_unicode_decoder($str) {
-    // Dekoder sederhana untuk %uXXXX. Dalam aplikasi nyata, ini bisa lebih kompleks atau dari library.
     return preg_replace_callback('/%u([0-9a-fA-F]{4})/', function ($match) {
         return mb_convert_encoding(pack('H*', $match[1]), 'UTF-8', 'UCS-2BE');
     }, $str);
@@ -13,14 +12,8 @@ $baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPA
 
 if (isset($_GET['path_unicode'])) {
     $rawUnicodePath = $_GET['path_unicode'];
-
-    // Kerentanan: Aplikasi menggunakan dekoder Unicode kustom yang mungkin tidak aman.
     $decodedPathFromFunc = custom_unsafe_unicode_decoder($rawUnicodePath);
-
-    // Normalisasi slash untuk konsistensi sistem file.
-    // Karakter U+2216 (DIVISION SLASH) atau lainnya mungkin dihasilkan oleh dekoder.
     $normalizedDecodedPath = str_replace(["/", "\u{2216}", "\u{FF0F}"], DIRECTORY_SEPARATOR, $decodedPathFromFunc);
-
     $filePath = $baseDir . $normalizedDecodedPath;
 
     echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";

@@ -2,11 +2,8 @@
 
 header('Content-Type: text/plain; charset=utf-8');
 
-// Base directory untuk operasi file RELATIF (jika input tidak absolut)
 $scriptSafeBaseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
-
-// Root untuk sistem file yang DISIMULASIKAN (untuk path absolut dalam tes)
-$simulatedFSRoot = realpath(__DIR__ . '/../vulnerable_files');
+$simulatedFSRoot = realpath(__DIR__ . '/../vulnerable_files'); // Root untuk path absolut yang disimulasikan
 
 if (isset($_GET['path'])) {
     $userInputPath = $_GET['path'];
@@ -14,22 +11,18 @@ if (isset($_GET['path'])) {
     $isAbsoluteWindows = preg_match('/^[A-Za-z]:(\\\\|\/)/', $userInputPath) === 1;
 
     $finalPathToRead = null;
-    $effectivePathDebug = ''; // Untuk debug path yang efektif
+    $effectivePathDebug = '';
 
     if ($isAbsoluteUnix || $isAbsoluteWindows) {
-        // Dalam lingkungan tes, path absolut dipetakan ke dalam $simulatedFSRoot
         if ($isAbsoluteUnix) {
-            // Misal: /etc/passwd -> $simulatedFSRoot/etc/passwd
             $effectivePathDebug = $simulatedFSRoot . $userInputPath;
         } else { // Windows
-            // Misal: C:\Windows\file -> $simulatedFSRoot/Windows/file
             $pathWithoutDrive = preg_replace('/^[A-Za-z]:(\\\\|\/)?/', '', $userInputPath);
             $effectivePathDebug = $simulatedFSRoot . DIRECTORY_SEPARATOR . str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $pathWithoutDrive);
         }
         $finalPathToRead = realpath($effectivePathDebug);
         echo "Input appears to be an absolute path (simulated access).\n";
     } else {
-        // Path relatif
         $effectivePathDebug = $scriptSafeBaseDir . $userInputPath;
         $finalPathToRead = realpath($effectivePathDebug);
         echo "Input appears to be a relative path.\n";

@@ -11,54 +11,52 @@ abstract class BaseVulnerableScriptTest extends TestCase
     protected string $adminPanelContent = "<h1>Admin Panel</h1>";
     protected string $dbConfigContent = "<?php // DB Config";
     protected string $legitContent = "This is a public file.";
-    protected string $publicModuleContent = '<?php echo "Ini adalah konten modul publik."; ?>'; // Konten modul publik
+    protected string $publicModuleContent = '<?php echo "Ini adalah konten modul publik."; ?>';
     protected string $etcPasswdContent = "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin";
     protected string $windowsHostsContent = "127.0.0.1 localhost\r\n::1 localhost";
 
-    /**
-     * Path absolut ke direktori vulnerable_files.
-     * Didefinisikan sekali untuk konsistensi.
-     */
     protected string $baseVulnerableFilesPath;
 
     public function __construct(?string $name = null, array $data = [], $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
-        // Inisialisasi path dasar di sini atau di setUpBeforeClass jika Anda ingin.
-        // Menggunakan realpath untuk mendapatkan path absolut kanonis.
-        $this->baseVulnerableFilesPath = realpath(__DIR__ . '/../vulnerable_files');
-        if ($this->baseVulnerableFilesPath === false) {
-            // Jika vulnerable_files tidak ada sama sekali, ini masalah besar.
-            // Mungkin lebih baik throw exception atau fail di sini.
-            // Untuk sekarang, kita biarkan dan tes mungkin gagal jika file tidak ditemukan.
-            // Atau, Anda bisa memutuskan untuk membuatnya jika tidak ada:
-            // if (!mkdir(__DIR__ . '/../vulnerable_files', 0777, true) && !is_dir(__DIR__ . '/../vulnerable_files')) {
-            //      throw new \RuntimeException(sprintf('Directory "%s" was not created', __DIR__ . '/../vulnerable_files'));
-            // }
-            // $this->baseVulnerableFilesPath = realpath(__DIR__ . '/../vulnerable_files');
-            // Namun, karena Anda bilang sudah menyiapkan, kita asumsikan ada.
-        }
+        // Inisialisasi path dasar ke vulnerable_files
+        $constructedPath = __DIR__ . '/../vulnerable_files';
+        $this->baseVulnerableFilesPath = realpath($constructedPath);
+
+        // Jika path tidak ada, $this->baseVulnerableFilesPath akan false.
+        // Ini akan ditangani di setUp() atau setUpBeforeClass().
     }
 
+    /**
+     * Menjalankan skrip PHP yang rentan dan menangkap outputnya.
+     * @param string $scriptName Nama file skrip di direktori src/.
+     * @param array $getParams Parameter GET yang akan dikirim ke skrip.
+     * @return string Output dari skrip.
+     */
     protected function executeScript(string $scriptName, array $getParams): string
     {
         $originalGet = $_GET;
         $originalServer = $_SERVER;
 
         $_GET = $getParams;
+        // Simulasikan beberapa variabel server minimal yang mungkin dibutuhkan skrip
         $_SERVER['REQUEST_METHOD'] = 'GET';
         $_SERVER['SCRIPT_NAME'] = '/src/' . $scriptName;
+        $_SERVER['QUERY_STRING'] = http_build_query($getParams);
 
-        $scriptPath = __DIR__ . '/../src/' . $scriptName;
+        // Path absolut ke skrip yang akan diuji
+        $scriptPath = realpath(__DIR__ . '/../src/' . $scriptName);
 
-        if (!file_exists($scriptPath)) {
-            $this->fail("Script file not found: {$scriptPath}");
+        if ($scriptPath === false || !file_exists($scriptPath)) {
+            $this->fail("Script file not found or path invalid: " . __DIR__ . '/../src/' . $scriptName);
         }
 
         ob_start();
-        include $scriptPath;
+        include $scriptPath; // Include skrip untuk menjalankannya dalam lingkup ini
         $output = ob_get_clean();
 
+        // Kembalikan variabel global ke keadaan semula
         $_GET = $originalGet;
         $_SERVER = $originalServer;
 
@@ -67,59 +65,41 @@ abstract class BaseVulnerableScriptTest extends TestCase
 
     /**
      * Dipanggil sekali sebelum tes pertama dalam kelas ini dijalankan.
-     * Anda bisa gunakan ini untuk setup yang lebih global jika diperlukan.
      */
     public static function setUpBeforeClass(): void
     {
-        // Jika Anda perlu melakukan sesuatu sekali per kelas tes, lakukan di sini.
-        // Contoh: Memastikan direktori vulnerable_files utama ada.
         $basePath = realpath(__DIR__ . '/../vulnerable_files');
         if ($basePath === false || !is_dir($basePath)) {
-            // Ini akan menghentikan eksekusi tes jika direktori utama tidak ada.
-            // Anda mungkin ingin menangani ini dengan cara berbeda.
+            // Anda bisa throw exception di sini jika direktori ini krusial dan harus ada
             // throw new \Exception("Direktori vulnerable_files tidak ditemukan. Pastikan sudah disiapkan.");
-            echo "PERINGATAN: Direktori vulnerable_files tidak ditemukan di " . realpath(__DIR__ . '/..') . "/vulnerable_files. Tes mungkin gagal.\n";
+            // Atau cukup catat peringatan (PHPUnit mungkin tidak menampilkannya kecuali ada kegagalan)
+            // fwrite(STDERR, "PERINGATAN: Direktori vulnerable_files tidak ditemukan.\n");
         }
     }
 
-
     /**
-     * Metode setUp() sekarang tidak akan membuat file, hanya bisa digunakan
-     * untuk setup per-tes jika ada.
-     * Kita asumsikan file-file di vulnerable_files sudah disiapkan secara manual.
+     * Dipanggil sebelum setiap metode tes dalam kelas ini dijalankan.
      */
     protected function setUp(): void
     {
-        // Pastikan direktori vulnerable_files utama dapat diakses
         if ($this->baseVulnerableFilesPath === false || !is_dir($this->baseVulnerableFilesPath)) {
-            $this->markTestSkipped("Direktori vulnerable_files tidak ditemukan atau tidak dapat diakses di '{$this->baseVulnerableFilesPath}'. Harap siapkan secara manual.");
+            $this->markTestSkipped("Direktori vulnerable_files tidak ditemukan atau tidak dapat diakses di '" . __DIR__ . "/../vulnerable_files" . "'. Harap siapkan direktori dan file-file dummy secara manual.");
         }
-        // Tidak ada lagi pembuatan file di sini agar tidak menimpa file manual Anda.
-        // Anda bisa menambahkan verifikasi di sini bahwa file-file yang dibutuhkan oleh tes *memang ada*,
-        // dan skip tes jika tidak ada. Contoh:
-        // if (!file_exists($this->baseVulnerableFilesPath . '/secret_dir/secret.txt')) {
-        //     $this->markTestSkipped("File secret_files/secret.txt tidak ditemukan di vulnerable_files.");
-        // }
+        // Contoh verifikasi file penting, bisa diperluas
+        if (!file_exists($this->baseVulnerableFilesPath . '/secret_dir/secret.txt')) {
+             $this->markTestSkipped("File /secret_dir/secret.txt tidak ditemukan di vulnerable_files. Tes mungkin gagal atau diskip.");
+        }
+         if (!file_exists($this->baseVulnerableFilesPath . '/safe_dir/legit.txt')) {
+             $this->markTestSkipped("File /safe_dir/legit.txt tidak ditemukan di vulnerable_files. Tes mungkin gagal atau diskip.");
+        }
     }
 
     /**
-     * Metode tearDown() sekarang TIDAK akan menghapus file atau direktori
-     * dari vulnerable_files.
+     * Dipanggil setelah setiap metode tes dalam kelas ini dijalankan.
      */
     protected function tearDown(): void
     {
-        // Tidak ada lagi penghapusan file di sini.
-        // Jika ada file sementara yang DIBUAT OLEH TES SPESIFIK (bukan bagian dari setup manual Anda),
-        // maka file sementara itu yang seharusnya dibersihkan di sini atau di tearDown tes spesifik tersebut.
+        // Tidak ada penghapusan file di sini untuk menjaga file yang disiapkan manual.
+        // Jika tes spesifik membuat file sementara, tes tersebut yang harus membersihkannya.
     }
-
-    // Helper ini mungkin tidak lagi dibutuhkan jika setUp tidak membuat direktori.
-    // private function ensureDirectoryExists(string $path): void
-    // {
-    //     if (!is_dir($path)) {
-    //         if (!mkdir($path, 0777, true) && !is_dir($path)) {
-    //             throw new \RuntimeException(sprintf('Directory "%s" was not created', $path));
-    //         }
-    //     }
-    // }
 }

@@ -3,41 +3,35 @@
 header('Content-Type: text/plain; charset=utf-8');
 
 $baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
-$enforcedExtension = ".jpg"; // Aplikasi mungkin mencoba menambahkan ekstensi.
 
 if (isset($_GET['file'])) {
-    $userFile = $_GET['file']; // Input dari pengguna, sudah di-URL-decode oleh PHP (%00 -> \0)
-
-    // Potensi kerentanan jika logika aplikasi seperti ini:
-    // 1. User menyediakan "path/ke/file\0jahat.jpg"
-    // 2. Aplikasi mungkin memeriksa ekstensi pada $userFile (yang masih mengandung \0)
-    // 3. Aplikasi kemudian MUNGKIN memproses bagian sebelum \0 untuk operasi file.
-
-    // Path yang akan digunakan, mungkin dengan ekstensi yang dipaksakan
-    // Jika $userFile sudah ada null byte, $enforcedExtension akan diabaikan oleh fungsi C lama.
-    $filePathAttempt = $baseDir . $userFile; // Jika file tidak diakhiri dengan .jpg
-    if (substr($userFile, -strlen($enforcedExtension)) !== $enforcedExtension) {
-        // $filePathAttempt = $baseDir . $userFile . $enforcedExtension; // Logika ini salah jika ada null byte
-    }
-
+    $userFile = $_GET['file']; // Sudah di-URL-decode oleh PHP (%00 -> \0)
+    $filePathAttempt = $baseDir . $userFile;
 
     echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";
-    echo "User Input ('file') (hex): " . bin2hex($userFile) . "\n"; // Tampilkan hex untuk melihat null byte
+    echo "User Input ('file') (hex): " . bin2hex($userFile) . "\n";
     echo "Attempting to access (raw constructed path): " . htmlspecialchars($filePathAttempt) . "\n";
 
-    $realFullPath = realpath($filePathAttempt); // realpath juga umumnya null-byte safe di PHP modern
-    echo "Resolved real path: " . ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid') . "\n\n";
+    $realFullPath = null;
+    $message = "";
+    if (strpos($filePathAttempt, "\0") === false) {
+        $realFullPath = realpath($filePathAttempt);
+        $message = ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid');
+    } else {
+        // PHP 8+ realpath() throws ValueError on null bytes.
+        // file_exists() etc. will treat null byte as part of filename.
+        $message = 'Path contains null byte, realpath() not called or would fail. Filesystem functions will treat null as part of name.';
+        // $realFullPath tetap null
+    }
+    echo "Resolved real path: " . $message . "\n\n";
 
     if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath) && is_readable($realFullPath)) {
         echo "--- File Content Start ---\n";
         echo htmlspecialchars(file_get_contents($realFullPath));
         echo "\n--- File Content End ---";
-        echo "\nNote: File found, modern PHP's file_get_contents might not have truncated at null byte if present in filename itself.";
     } else {
-        echo "Error: File not found, not a file, or not readable at resolved path.";
-        echo "\nModern PHP file functions are generally null-byte safe regarding path truncation for a given string.";
-
-        // Simulasi bagaimana null byte BISA mempengaruhi path JIKA DIPROSES SEBELUMNYA
+        echo "Error: File not found, not a file, or not readable at (potentially modified by null byte) resolved path.";
+        
         $nullPos = strpos($userFile, "\0");
         if ($nullPos !== false) {
             $truncatedFilePart = substr($userFile, 0, $nullPos);

@@ -10,7 +10,7 @@ services:
       - ./tests:/app/tests
       - ./logs:/app/logs
     environment:
-      - XDEBUG_MODE=coverage☺
+      - XDEBUG_MODE=coverage
       - TZ=Asia/Jakarta
     networks:
       - vuln-app

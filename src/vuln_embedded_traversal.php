@@ -5,7 +5,7 @@ header('Content-Type: text/plain; charset=utf-8');
 $baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['resource'])) {
-    $userResource = $_GET['resource']; // Misal: "images/../../secret_dir/secret.txt"
+    $userResource = $_GET['resource'];
 
     $filePath = $baseDir . $userResource;
 

@@ -1,13 +1,10 @@
 <?php // src/vuln_obfuscated_mixed_slashes_traversal.php
-
 header('Content-Type: text/plain; charset=utf-8');
 
 $baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['file'])) {
-    $userFile = $_GET['file']; // Misal: ..././../secret_dir/secret.txt atau ..\\secret_dir/secret.txt
-
-    // Kerentanan: Path langsung digabungkan, mengandalkan normalisasi OS/PHP
+    $userFile = $_GET['file'];
     $filePath = $baseDir . $userFile;
 
     echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";

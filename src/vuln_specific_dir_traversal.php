@@ -3,12 +3,12 @@
 header('Content-Type: text/plain; charset=utf-8');
 
 // Basis direktori modul yang "sah".
+// __DIR__ adalah /app/src, jadi ini akan menjadi /app/vulnerable_files/safe_dir/modules/
 $modulesBaseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/modules/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['module_name'])) {
-    $userModuleName = $_GET['module_name']; // Misal: "public_module.php" atau payload jahat
+    $userModuleName = $_GET['module_name'];
 
-    // Kerentanan: Path langsung digabungkan.
     $modulePath = $modulesBaseDir . $userModuleName;
 
     echo "Modules Base Directory: " . htmlspecialchars($modulesBaseDir) . "\n";

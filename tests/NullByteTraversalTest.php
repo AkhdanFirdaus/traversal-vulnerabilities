@@ -4,25 +4,30 @@ namespace Tests;
 
 class NullByteTraversalTest extends BaseVulnerableScriptTest
 {
+    /**
+     * Menguji injeksi null byte.
+     * @see CWE-30 Path Traversal: '%00' (Null Byte Injection)
+     */
     public function testNullByteAttemptToAccessSecretFile()
     {
         $scriptName = 'vuln_null_byte_traversal.php';
-        // Payload: ../secret_dir/secret.txt\0fake.jpg
-        $payload = '../secret_dir/secret.txt' . "\0" . 'fake.jpg'; // PHPUnit akan mengirim \0 secara literal
+        $payload = '../secret_dir/secret.txt' . "\0" . 'fake.jpg';
         $params = ['file' => $payload];
 
         $output = $this->executeScript($scriptName, $params);
 
-        // Pada PHP modern, file_get_contents tidak akan terpotong oleh null byte di tengah nama file.
-        // Jadi, kita mengharapkan file "secret.txt\0fake.jpg" tidak ditemukan.
-        $this->assertStringContainsString("Error: File not found, not a file, or not readable at resolved path.", $output, "Output tidak menunjukkan error file tidak ditemukan seperti yang diharapkan untuk null byte di PHP modern. Output:\n" . $output);
+        // PHP 8+ realpath() akan throw ValueError, atau kita skip. file_exists() akan gagal.
+        $this->assertStringNotContainsString("--- File Content Start ---", $output, "Konten rahasia seharusnya tidak terbaca langsung saat null byte ada. Output:\n" . $output);
+        $this->assertStringContainsString("Path contains null byte, realpath() not called or would fail.", $output, "Skrip seharusnya mendeteksi null byte. Output:\n" . $output);
+        $this->assertStringContainsString("Error: File not found", $output, "Output tidak menunjukkan error file tidak ditemukan. Output:\n" . $output);
 
-        // Verifikasi bahwa bagian simulasi dari skrip (jika null byte ada) mencoba path yang benar
-        // dan membaca konten rahasia.
-        $this->assertStringContainsString("--- Simulation of pre-filesystem null byte truncation ---", $output, "Bagian simulasi null byte tidak ditemukan. Output:\n" . $output);
-
-        $expectedSimulatedPathEnd = 'vulnerable_files' . DIRECTORY_SEPARATOR . 'secret_dir' . DIRECTORY_SEPARATOR . 'secret.txt';
-        $this->assertStringContainsString($expectedSimulatedPathEnd, $output, "Path simulasi yang di-resolve tidak benar. Output:\n" . $output);
-        $this->assertStringContainsString($this->secretContent, $output, "Simulasi null byte truncation gagal mengambil konten rahasia. Output:\n" . $output);
+        // Verifikasi bagian simulasi
+        if (str_contains($output, "--- Simulation of pre-filesystem null byte truncation ---")) {
+            $fullExpectedSimulatedPath = realpath($this->baseVulnerableFilesPath . '/secret_dir/secret.txt');
+            $this->assertStringContainsString("Resolved real path (simulated truncation): " . htmlspecialchars($fullExpectedSimulatedPath), $output, "Path simulasi yang di-resolve tidak benar. Output:\n" . $output);
+            $this->assertStringContainsString(htmlspecialchars($this->secretContent), $output, "Simulasi null byte truncation gagal mengambil konten rahasia. Output:\n" . $output);
+        } else {
+            $this->fail("Bagian simulasi null byte tidak ditemukan dalam output.");
+        }
     }
 }

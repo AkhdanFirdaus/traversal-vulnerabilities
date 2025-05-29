@@ -7,7 +7,7 @@ header('Content-Type: text/plain; charset=utf-8');
 $baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['file'])) {
-    $userFile = $_GET['file']; // Input dari pengguna, misal: ../secret_dir/secret.txt
+    $userFile = $_GET['file']; // Input dari pengguna
 
     // Kerentanan: Input pengguna langsung digabungkan ke baseDir.
     $filePath = $baseDir . $userFile;
@@ -16,10 +16,9 @@ if (isset($_GET['file'])) {
     echo "User Input ('file'): " . htmlspecialchars($userFile) . "\n";
     echo "Attempting to access (constructed path): " . htmlspecialchars($filePath) . "\n";
 
-    $realFullPath = realpath($filePath); // Resolve path (e.g., '..', '.')
+    $realFullPath = realpath($filePath);
     echo "Resolved real path: " . ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid') . "\n\n";
 
-    // Menggunakan file_get_contents untuk membaca, bukan include, agar lebih aman untuk output tes.
     if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath) && is_readable($realFullPath)) {
         echo "--- File Content Start ---\n";
         echo htmlspecialchars(file_get_contents($realFullPath));

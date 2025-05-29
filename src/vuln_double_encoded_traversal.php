@@ -2,20 +2,16 @@
 
 header('Content-Type: text/plain; charset=utf-8');
 
-$baseDir = realpath(__DIR__ . '/../vulnerable_files/secret_dir/') . DIRECTORY_SEPARATOR;
+$baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['file'])) {
-    // PHP otomatis mendekode %XX sekali saat mengisi $_GET
-    $singlyDecodedFile = $_GET['file'];
-
-    // Kerentanan: Aplikasi melakukan urldecode() lagi pada input yang sudah didekode.
-    $doublyDecodedFile = urldecode($singlyDecodedFile);
-
+    $singlyDecodedFileByPHP = $_GET['file'];
+    $doublyDecodedFile = urldecode($singlyDecodedFileByPHP);
     $filePath = $baseDir . $doublyDecodedFile;
 
     echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";
-    echo "Original \$_GET['file'] (singly decoded by PHP): " . htmlspecialchars($singlyDecodedFile) . "\n";
-    echo "After script's urldecode() (doubly decoded): " . htmlspecialchars($doublyDecodedFile) . "\n";
+    echo "Input \$_GET['file'] (expected to be singly decoded by PHP): " . htmlspecialchars($singlyDecodedFileByPHP) . "\n";
+    echo "After script's urldecode() (expected to be doubly decoded): " . htmlspecialchars($doublyDecodedFile) . "\n";
     echo "Attempting to access (constructed path): " . htmlspecialchars($filePath) . "\n";
 
     $realFullPath = realpath($filePath);
@@ -29,6 +25,6 @@ if (isset($_GET['file'])) {
         echo "Error: File not found, not a file, or not readable at resolved path.";
     }
 } else {
-    echo "Usage: ?file=<double_url_encoded_payload>";
+    echo "Usage: ?file=<double_url_encoded_payload_where_php_does_first_decode>";
 }
 ?>

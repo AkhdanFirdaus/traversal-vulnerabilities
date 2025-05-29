@@ -4,42 +4,55 @@ namespace Tests;
 
 class AbsolutePathTraversalTest extends BaseVulnerableScriptTest
 {
+    /**
+     * Menguji akses ke file passwd yang disimulasikan menggunakan path absolut Unix.
+     * @see CWE-25 Path Traversal: '/../filedir' (Absolute Path)
+     * @see CWE-36 Path Traversal: Absolute
+     */
     public function testAccessesSimulatedEtcPasswdWithAbsoluteUnixPath()
     {
         $scriptName = 'vuln_absolute_path_traversal.php';
         $payload = '/etc/passwd'; // Akan dipetakan ke vulnerable_files/etc/passwd
         $params = ['path' => $payload];
-
         $output = $this->executeScript($scriptName, $params);
 
-        $this->assertStringContainsString($this->etcPasswdContent, $output, "Gagal mengambil passwd. Output:\n" . $output);
-        $expectedPathEnd = 'vulnerable_files' . DIRECTORY_SEPARATOR . 'etc' . DIRECTORY_SEPARATOR . 'passwd';
-        $this->assertStringContainsString($expectedPathEnd, $output);
+        $this->assertStringContainsString(htmlspecialchars($this->etcPasswdContent), $output, "Gagal mengambil passwd. Output:\n" . $output);
+        $fullExpectedResolvedPath = realpath($this->baseVulnerableFilesPath . '/etc/passwd');
+        $this->assertStringContainsString("Resolved real path (final attempt): " . htmlspecialchars($fullExpectedResolvedPath), $output);
+        $this->assertStringContainsString("Input appears to be an absolute path (simulated access).", $output);
     }
 
+    /**
+     * Menguji akses ke file hosts Windows yang disimulasikan menggunakan path absolut Windows.
+     * @see CWE-25 Path Traversal: '/../filedir' (Absolute Path)
+     * @see CWE-36 Path Traversal: Absolute
+     */
     public function testAccessesSimulatedWindowsHostsWithAbsoluteWindowsPath()
     {
         $scriptName = 'vuln_absolute_path_traversal.php';
-        $payload = '\\Windows\\System32\\drivers\\etc\\hosts'; // Akan dipetakan
+        $payload = 'C:\\Windows\\System32\\drivers\\etc\\hosts'; // Menyertakan drive letter
         $params = ['path' => $payload];
-
         $output = $this->executeScript($scriptName, $params);
 
-        $this->assertStringContainsString($this->windowsHostsContent, $output, "Gagal mengambil hosts Windows. Output:\n" . $output);
-        $expectedPathEnd = 'vulnerable_files' . DIRECTORY_SEPARATOR . 'Windows' . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'drivers' . DIRECTORY_SEPARATOR . 'etc' . DIRECTORY_SEPARATOR . 'hosts';
-        $this->assertStringContainsString($expectedPathEnd, $output);
+        $this->assertStringContainsString(htmlspecialchars($this->windowsHostsContent), $output, "Gagal mengambil hosts Windows. Output:\n" . $output);
+        $fullExpectedResolvedPath = realpath($this->baseVulnerableFilesPath . '/Windows/System32/drivers/etc/hosts');
+        $this->assertStringContainsString("Resolved real path (final attempt): " . htmlspecialchars($fullExpectedResolvedPath), $output);
+        $this->assertStringContainsString("Input appears to be an absolute path (simulated access).", $output);
     }
 
+    /**
+     * Menguji akses ke file legit menggunakan path relatif melalui skrip yang juga menangani path absolut.
+     */
     public function testAccessesLegitFileWithRelativePathUsingAbsoluteScript()
     {
         $scriptName = 'vuln_absolute_path_traversal.php';
-        // Path relatif akan menggunakan $scriptSafeBaseDir dari skrip
-        $payload = '/safe_dir/legit.txt';
-        $params = ['path' => $payload];
+        $payloadRelative = 'legit.txt'; // Path relatif dari safe_dir
+        $paramsRelative = ['path' => $payloadRelative];
 
-        $output = $this->executeScript($scriptName, $params);
-        $this->assertStringContainsString($this->legitContent, $output, "Gagal mengambil legit.txt. Output:\n" . $output);
-        $expectedPathEnd = 'vulnerable_files' . DIRECTORY_SEPARATOR . 'safe_dir' . DIRECTORY_SEPARATOR . 'legit.txt';
-        $this->assertStringContainsString($expectedPathEnd, $output);
+        $outputRelative = $this->executeScript($scriptName, $paramsRelative);
+        $this->assertStringContainsString(htmlspecialchars($this->legitContent), $outputRelative, "Gagal mengambil legit.txt via path RELATIF. Output:\n" . $outputRelative);
+        $fullExpectedResolvedPath = realpath($this->baseVulnerableFilesPath . '/safe_dir/legit.txt');
+        $this->assertStringContainsString("Resolved real path (final attempt): " . htmlspecialchars($fullExpectedResolvedPath), $outputRelative);
+        $this->assertStringContainsString("Input appears to be a relative path.", $outputRelative);
     }
 }
