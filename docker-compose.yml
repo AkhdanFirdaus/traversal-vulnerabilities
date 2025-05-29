@@ -1,0 +1,21 @@
+services:
+  app:
+    container_name: traversal-vulnerabilities
+    build: .
+    command: tail -F /dev/null
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./logs:/app/logs
+    environment:
+      - TZ=Asia/Jakarta
+    networks:
+      - vuln-app
+
+networks:
+  vuln-app:
+
+volumes:
+  logs:
