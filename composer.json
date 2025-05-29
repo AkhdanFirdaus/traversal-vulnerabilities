@@ -18,8 +18,8 @@
         }
     },
     "scripts": {
-        "test": "phpunit",
-        "infection": "infection --threads=auto --min-msi=50"
+        "test": "phpunit --testdox",
+        "infection": "infection"
     },
     "config": {
         "allow-plugins": {
