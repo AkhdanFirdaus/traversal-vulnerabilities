@@ -1,27 +1,31 @@
-<?php
-// Vulnerable to: ../admin, ../config (as parts of a path)
-// Example URL: vuln_specific_dir_traversal.php?module=../secret_files/admin/panel.php
-// Example URL: vuln_specific_dir_traversal.php?module=../secret_files/config/db.php
+<?php // src/vuln_specific_dir_traversal.php
 
-header('Content-Type: text/plain');
-$modulesBaseDir = 'public_files/modules/'; // e.g., public_files/modules/gallery/
+header('Content-Type: text/plain; charset=utf-8');
 
-if (isset($_GET['module'])) {
-    $modulePath = $_GET['module'];
-    // Vulnerability: Assumes $modulePath is just 'gallery', 'profile' etc.
-    // but an attacker can use '../' to break out of 'public_files/modules/'
-    // and then target specific known paths.
-    $fullPath = $modulesBaseDir . $modulePath; // Path like 'public_files/modules/' . '../secret_files/admin/panel.php'
+// Basis direktori modul yang "sah".
+$modulesBaseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/modules/') . DIRECTORY_SEPARATOR;
 
-    echo "Attempting to load module from: " . $fullPath . "\n";
-    echo "Resolved real path: " . realpath($fullPath) . "\n\n";
+if (isset($_GET['module_name'])) {
+    $userModuleName = $_GET['module_name']; // Misal: "public_module.php" atau payload jahat
 
-    if (file_exists($fullPath)) {
-        include $fullPath;
+    // Kerentanan: Path langsung digabungkan.
+    $modulePath = $modulesBaseDir . $userModuleName;
+
+    echo "Modules Base Directory: " . htmlspecialchars($modulesBaseDir) . "\n";
+    echo "User Module Input: " . htmlspecialchars($userModuleName) . "\n";
+    echo "Attempting to load module from (constructed path): " . htmlspecialchars($modulePath) . "\n";
+
+    $realModulePath = realpath($modulePath);
+    echo "Resolved real path: " . ($realModulePath ? htmlspecialchars($realModulePath) : 'Path does not exist or is invalid') . "\n\n";
+
+    if ($realModulePath && file_exists($realModulePath) && is_file($realModulePath) && is_readable($realModulePath)) {
+        echo "--- Module Content Start ---\n";
+        echo htmlspecialchars(file_get_contents($realModulePath));
+        echo "\n--- Module Content End ---";
     } else {
-        echo "Error: Module not found at '{$fullPath}'.";
+        echo "Error: Module not found, not a file, or not readable at resolved path.";
     }
 } else {
-    echo "Usage: ?module=<module_path>";
+    echo "Usage: ?module_name=<module_filename.php>";
 }
 ?>

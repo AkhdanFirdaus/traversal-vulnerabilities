@@ -1,36 +1,33 @@
 <?php // src/vuln_basic_relative_traversal.php
 
-// Pola serangan yang diharapkan: ../secret_dir/secret.txt (relatif terhadap $baseDir)
-// Contoh URL (jika skrip diakses langsung via web server di /src/script.php):
-// ?file=../secret_dir/secret.txt
+header('Content-Type: text/plain; charset=utf-8');
 
-header('Content-Type: text/plain');
-
-// __DIR__ akan menjadi /path/to/project/src
-// Jadi, __DIR__ . '/../vulnerable_files/safe_dir/' akan menunjuk ke
-// /path/to/project/vulnerable_files/safe_dir/
+// Basis direktori aman, tempat file seharusnya diakses.
+// __DIR__ adalah /path/to/project/src
 $baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['file'])) {
-    $userFile = $_GET['file'];
-    // Gabungkan baseDir dengan input pengguna
+    $userFile = $_GET['file']; // Input dari pengguna, misal: ../secret_dir/secret.txt
+
+    // Kerentanan: Input pengguna langsung digabungkan ke baseDir.
     $filePath = $baseDir . $userFile;
-    // Contoh: /path/to/project/vulnerable_files/safe_dir/../secret_dir/secret.txt
 
-    echo "Attempting to include: " . $filePath . "\n";
-    // Normalisasi path untuk keamanan (yang seharusnya dilakukan kode aman)
-    // realpath() akan menyelesaikan '..' dan '.' dan mengembalikan path absolut kanonis, atau false jika path tidak valid.
-    $realFullPath = realpath($filePath);
-    echo "Resolved real path: " . ($realFullPath ?: 'Path does not exist or is invalid') . "\n\n";
+    echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";
+    echo "User Input ('file'): " . htmlspecialchars($userFile) . "\n";
+    echo "Attempting to access (constructed path): " . htmlspecialchars($filePath) . "\n";
 
-    // Kerentanan: include langsung tanpa validasi yang cukup terhadap $realFullPath
-    // terhadap $baseDir setelah normalisasi.
-    if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath)) {
-        include $realFullPath; // Rentan jika $realFullPath keluar dari $baseDir
+    $realFullPath = realpath($filePath); // Resolve path (e.g., '..', '.')
+    echo "Resolved real path: " . ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid') . "\n\n";
+
+    // Menggunakan file_get_contents untuk membaca, bukan include, agar lebih aman untuk output tes.
+    if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath) && is_readable($realFullPath)) {
+        echo "--- File Content Start ---\n";
+        echo htmlspecialchars(file_get_contents($realFullPath));
+        echo "\n--- File Content End ---";
     } else {
-        echo "Error: File not found or not readable at resolved path '{$realFullPath}'. Attempted: '{$filePath}'";
+        echo "Error: File not found, not a file, or not readable at resolved path.";
     }
 } else {
-    echo "Usage: ?file=<filename>";
+    echo "Usage: ?file=<filename_payload>";
 }
 ?>

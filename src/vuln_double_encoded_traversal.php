@@ -1,32 +1,34 @@
-<?php
-// Vulnerable to: %252e%252e%252f (double URL encoded ../)
-// Example URL: vuln_double_encoded_traversal.php?file=%252e%252e%252fsecret_files%252fsecret.txt
-// $_GET automatically decodes once: %252e%252e%252f -> %2e%2e%2f
-// The script then decodes it again: %2e%2e%2f -> ../
+<?php // src/vuln_double_encoded_traversal.php
 
-header('Content-Type: text/plain');
-$baseDir = 'public_files/';
+header('Content-Type: text/plain; charset=utf-8');
+
+$baseDir = realpath(__DIR__ . '/../vulnerable_files/secret_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['file'])) {
-    // $_GET['file'] will be singly-decoded by PHP: e.g., "%2e%2e%2fsecret_files%2fsecret.txt"
+    // PHP otomatis mendekode %XX sekali saat mengisi $_GET
     $singlyDecodedFile = $_GET['file'];
 
-    // Vulnerability: Application performs another urldecode
-    $doublyDecodedFile = urldecode($singlyDecodedFile); // e.g., "../secret_files/secret.txt"
+    // Kerentanan: Aplikasi melakukan urldecode() lagi pada input yang sudah didekode.
+    $doublyDecodedFile = urldecode($singlyDecodedFile);
 
     $filePath = $baseDir . $doublyDecodedFile;
 
-    echo "Singly decoded input (from \$_GET): " . $singlyDecodedFile . "\n";
-    echo "Doubly decoded input (after script urldecode): " . $doublyDecodedFile . "\n";
-    echo "Attempting to read: " . $filePath . "\n";
-    echo "Resolved real path: " . realpath($filePath) . "\n\n";
+    echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";
+    echo "Original \$_GET['file'] (singly decoded by PHP): " . htmlspecialchars($singlyDecodedFile) . "\n";
+    echo "After script's urldecode() (doubly decoded): " . htmlspecialchars($doublyDecodedFile) . "\n";
+    echo "Attempting to access (constructed path): " . htmlspecialchars($filePath) . "\n";
 
-    if (file_exists($filePath) && is_readable($filePath)) {
-        echo file_get_contents($filePath);
+    $realFullPath = realpath($filePath);
+    echo "Resolved real path: " . ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid') . "\n\n";
+
+    if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath) && is_readable($realFullPath)) {
+        echo "--- File Content Start ---\n";
+        echo htmlspecialchars(file_get_contents($realFullPath));
+        echo "\n--- File Content End ---";
     } else {
-        echo "Error: File not found or not readable.";
+        echo "Error: File not found, not a file, or not readable at resolved path.";
     }
 } else {
-    echo "Usage: ?file=<double_encoded_path>";
+    echo "Usage: ?file=<double_url_encoded_payload>";
 }
 ?>

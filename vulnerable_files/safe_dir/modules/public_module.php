@@ -1,0 +1,1 @@
+<?php echo "Ini adalah konten modul publik."; ?>

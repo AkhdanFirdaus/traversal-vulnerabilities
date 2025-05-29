@@ -7,22 +7,24 @@ class UnicodeTraversalTest extends BaseVulnerableScriptTest
     public function testCanAccessSecretFileWithUnicodePercentUTraversal()
     {
         $scriptName = 'vuln_unicode_traversal.php';
-        // %u002e%u002e%u2216 adalah ../ (menggunakan %u2216 sebagai alternatif /)
-        // Payload untuk '../secret_files/secret.txt'
-        $payload = '%u002e%u002e%u2216secret_files%u2216secret.txt';
+        // Payload: ../secret_dir/secret.txt
+        // . -> %u002e
+        // / -> %u2216 (DIVISION SLASH) atau %u002f (SOLIDUS)
+        // Kita gunakan %u2216 untuk menguji fleksibilitas dekoder
+        $payload = '%u002e%u002e%u2216secret_dir%u2216secret.txt';
         $params = ['path_unicode' => $payload];
 
         $output = $this->executeScript($scriptName, $params);
 
-        $this->assertStringContainsString($this->secretContent, $output, "Gagal mengambil konten rahasia menggunakan Unicode %u traversal.");
-        $this->assertStringContainsString("Raw Unicode input: " . $payload, $output);
+        $this->assertStringContainsString($this->secretContent, $output, "Gagal via Unicode. Output:\n" . $output);
+        $this->assertStringContainsString("Raw Unicode Input: " . htmlspecialchars($payload), $output);
 
-        // Path yang di-decode oleh custom_unicode_decoder adalah '../secret_files/secret.txt'
-        // dimana \u2216 menjadi karakter division slash.
-        // Kita perlu menormalisasi slash untuk perbandingan yang konsisten.
-        $decodedForAssertion = '../secret_files/secret.txt';
-        $outputForAssertion = str_replace("\u{2216}", "/", $output); // Ganti division slash dengan forward slash biasa di output
+        // Path yang diharapkan setelah custom_unsafe_unicode_decoder (sebelum normalisasi slash internal skrip)
+        $expectedDecodedByFunc = ".." . "\u{2216}" . "secret_files" . "\u{2216}" . "secret.txt";
+        $this->assertStringContainsString("Decoded by custom_unsafe_unicode_decoder: " . htmlspecialchars($expectedDecodedByFunc), $output);
 
-        $this->assertStringContainsString("Decoded path (after custom_unicode_decoder): " . $decodedForAssertion, $outputForAssertion);
+        // Path yang diharapkan setelah normalisasi slash internal skrip
+        $expectedNormalizedPath = ".." . DIRECTORY_SEPARATOR . "secret_files" . DIRECTORY_SEPARATOR . "secret.txt";
+        $this->assertStringContainsString("Normalized Decoded Path (for file access): " . htmlspecialchars($expectedNormalizedPath), $output);
     }
 }

@@ -1,38 +1,45 @@
-<?php
-// Vulnerable to: %u002e%u002e%u002f (../), %u2216 (/) if custom decoded
-// Example URL: vuln_unicode_traversal.php?path_unicode=%u002e%u002e%u2216secret_files%u2216secret.txt
-// (This URL itself won't be auto-decoded by PHP for %u, script must do it)
+<?php // src/vuln_unicode_traversal.php
 
-header('Content-Type: text/plain');
+header('Content-Type: text/plain; charset=utf-8');
 
-// Custom vulnerable function to decode %uXXXX sequences
-function custom_unicode_decoder($str) {
+function custom_unsafe_unicode_decoder($str) {
+    // Dekoder sederhana untuk %uXXXX. Dalam aplikasi nyata, ini bisa lebih kompleks atau dari library.
     return preg_replace_callback('/%u([0-9a-fA-F]{4})/', function ($match) {
         return mb_convert_encoding(pack('H*', $match[1]), 'UTF-8', 'UCS-2BE');
     }, $str);
 }
 
-$baseDir = 'public_files/';
+$baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['path_unicode'])) {
-    $rawUnicodePath = $_GET['path_unicode']; // e.g., "%u002e%u002e%u2216secret_files%u2216secret.txt"
+    $rawUnicodePath = $_GET['path_unicode'];
 
-    // Vulnerability: Application uses a custom/unsafe decoder
-    $decodedPath = custom_unicode_decoder($rawUnicodePath); // e.g., "../secret_files/secret.txt"
+    // Kerentanan: Aplikasi menggunakan dekoder Unicode kustom yang mungkin tidak aman.
+    $decodedPathFromFunc = custom_unsafe_unicode_decoder($rawUnicodePath);
 
-    $filePath = $baseDir . $decodedPath;
+    // Normalisasi slash untuk konsistensi sistem file.
+    // Karakter U+2216 (DIVISION SLASH) atau lainnya mungkin dihasilkan oleh dekoder.
+    $normalizedDecodedPath = str_replace(["/", "\u{2216}", "\u{FF0F}"], DIRECTORY_SEPARATOR, $decodedPathFromFunc);
 
-    echo "Raw Unicode input: " . $rawUnicodePath . "\n";
-    echo "Decoded path (after custom_unicode_decoder): " . $decodedPath . "\n";
-    echo "Attempting to read: " . $filePath . "\n";
-    echo "Resolved real path: " . realpath($filePath) . "\n\n";
+    $filePath = $baseDir . $normalizedDecodedPath;
 
-    if (file_exists($filePath) && is_readable($filePath)) {
-        echo file_get_contents($filePath);
+    echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";
+    echo "Raw Unicode Input: " . htmlspecialchars($rawUnicodePath) . "\n";
+    echo "Decoded by custom_unsafe_unicode_decoder: " . htmlspecialchars($decodedPathFromFunc) . "\n";
+    echo "Normalized Decoded Path (for file access): " . htmlspecialchars($normalizedDecodedPath) . "\n";
+    echo "Attempting to access (constructed path): " . htmlspecialchars($filePath) . "\n";
+
+    $realFullPath = realpath($filePath);
+    echo "Resolved real path: " . ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid') . "\n\n";
+
+    if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath) && is_readable($realFullPath)) {
+        echo "--- File Content Start ---\n";
+        echo htmlspecialchars(file_get_contents($realFullPath));
+        echo "\n--- File Content End ---";
     } else {
-        echo "Error: File not found or not readable.";
+        echo "Error: File not found, not a file, or not readable at resolved path.";
     }
 } else {
-    echo "Usage: ?path_unicode=<percent_u_encoded_path>";
+    echo "Usage: ?path_unicode=<uri_encoded_unicode_payload>";
 }
 ?>

@@ -1,23 +1,27 @@
-<?php
-// Vulnerable to: images/../secret.txt, static/../config.ini, images/../../secret_files/secret.txt
-// Example URL: vuln_embedded_traversal.php?resource=images/../../secret_files/secret.txt
-// Example URL: vuln_embedded_traversal.php?resource=legitimate.txt/../secret_files/secret.txt
+<?php // src/vuln_embedded_traversal.php
 
-header('Content-Type: text/plain');
-// Assumes resources are within 'public_files/' and an extension is often appended by the app
-$baseDir = 'public_files/';
+header('Content-Type: text/plain; charset=utf-8');
+
+$baseDir = realpath(__DIR__ . '/../vulnerable_files/safe_dir/') . DIRECTORY_SEPARATOR;
 
 if (isset($_GET['resource'])) {
-    $userResource = $_GET['resource']; // e.g., "images/../../secret_files/secret.txt"
+    $userResource = $_GET['resource']; // Misal: "images/../../secret_dir/secret.txt"
+
     $filePath = $baseDir . $userResource;
 
-    echo "Attempting to read: " . $filePath . "\n";
-    echo "Resolved real path: " . realpath($filePath) . "\n\n";
+    echo "Base Directory: " . htmlspecialchars($baseDir) . "\n";
+    echo "User Resource Input: " . htmlspecialchars($userResource) . "\n";
+    echo "Attempting to access (constructed path): " . htmlspecialchars($filePath) . "\n";
 
-    if (file_exists($filePath) && is_readable($filePath)) {
-        echo file_get_contents($filePath);
+    $realFullPath = realpath($filePath);
+    echo "Resolved real path: " . ($realFullPath ? htmlspecialchars($realFullPath) : 'Path does not exist or is invalid') . "\n\n";
+
+    if ($realFullPath && file_exists($realFullPath) && is_file($realFullPath) && is_readable($realFullPath)) {
+        echo "--- File Content Start ---\n";
+        echo htmlspecialchars(file_get_contents($realFullPath));
+        echo "\n--- File Content End ---";
     } else {
-        echo "Error: File not found or not readable.";
+        echo "Error: File not found, not a file, or not readable at resolved path.";
     }
 } else {
     echo "Usage: ?resource=<path_with_embedded_traversal>";
