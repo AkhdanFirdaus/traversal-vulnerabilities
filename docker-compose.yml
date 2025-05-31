@@ -10,7 +10,7 @@ services:
       - ./tests:/app/tests
       - ./build:/app/build
     environment:
-      # - XDEBUG_MODE=coverage
+      - XDEBUG_MODE=coverage,debug
       - TZ=Asia/Jakarta
     networks:
       - vuln-app

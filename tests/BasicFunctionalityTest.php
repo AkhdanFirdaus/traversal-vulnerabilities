@@ -1,18 +1,18 @@
 <?php
-// tests/BasicFunctionalityTest.php
+
 namespace Tests;
 
-class BasicFunctionalityTest extends BaseVulnerableScriptTest
+class BasicFunctionalityTest extends BaseVulnerableScript
 {
-    public function testLegitimateFileAccessInSafeDir()
+    public function testCanReadSafeFile(): void
     {
-        $payload = 'legit.txt'; // Relative to $sandboxBase in vuln_file_read.php
-        // targetFileKey for runFileReadTest needs to match a case in its switch statement
-        $this->runFileReadTest(
-            "Legitimate file access (safe_dir/legit.txt)",
-            $payload,
-            'safe_dir/legit.txt' // This key will be used by getTargetFileContent
-        );
+        $content = $this->reader->read('safe_dir/legit.txt');
+        $this->assertStringContainsString('legit', $content);
+    }
+
+    public function testCannotReadSecretFile(): void
+    {
+        $content = $this->reader->read('../secret_dir/secret.txt');
+        $this->assertEquals('Access denied', $content);
     }
 }
-?>
