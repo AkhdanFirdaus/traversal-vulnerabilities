@@ -8,6 +8,8 @@
             "vendor"
         ]
     },
+    "testFramework": "phpunit",
+    "bootstrap": "./vendor/autoload.php",
     "phpUnit": {
         "configDir": "."
     },
@@ -18,6 +20,8 @@
     "logs": {
         "text": "build/logs/infection.log",
         "html": "build/logs/infection.html",
-        "summary": "build/logs/summary.log"
+        "summary": "build/logs/summary.log",
+	"json": "infection-log.json",
+	"summaryJson": "summary.json"
     }
 }
