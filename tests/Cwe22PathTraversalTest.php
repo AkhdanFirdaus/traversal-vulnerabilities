@@ -2,8 +2,18 @@
 
 namespace Tests;
 
-class Cwe22PathTraversalTest extends BaseVulnerableScript
+use App\VulnFileRead;
+use PHPUnit\Framework\TestCase;
+
+class Cwe22PathTraversalTest extends TestCase
 {
+    protected VulnFileRead $reader;
+
+    protected function setUp(): void
+    {
+        $this->reader = new VulnFileRead();
+    }
+    
     public function testPathTraversalEscape(): void
     {
         $attempt = $this->reader->read('../../../../etc/passwd');
